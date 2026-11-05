@@ -1,0 +1,89 @@
+{
+  "seed": 20261105,
+  "sessions_per_scenario": 500,
+  "sampling_freq": 5.0,
+  "duration_sec": 7.0,
+  "window_sec": 3.0,
+  "stride_sec": 1.0,
+  "label_threshold": 0.4,
+  "light_bounds": [
+    0.0,
+    1.0
+  ],
+  "accel_bounds": [
+    0.0,
+    78.48
+  ],
+  "calibration_sec": 1.0,
+  "numpy_version": "2.5.4",
+  "scenarios": {
+    "normal_idle": "NORMAL",
+    "normal_walking": "NORMAL",
+    "normal_handling": "NORMAL",
+    "normal_vibration": "NORMAL",
+    "suspicious_open_move": "SUSPICIOUS",
+    "suspicious_open_rummage": "SUSPICIOUS",
+    "suspicious_open_pull": "SUSPICIOUS",
+    "suspicious_combined": "SUSPICIOUS"
+  },
+  "feature_columns": [
+    "light_mean",
+    "light_max",
+    "light_min",
+    "light_delta",
+    "light_change_rate",
+    "light_elevated_duration",
+    "bright_ratio",
+    "accel_mean",
+    "accel_max",
+    "accel_std",
+    "accel_change_rate",
+    "motion_duration",
+    "motion_event_count",
+    "light_motion_coincidence"
+  ],
+  "light_margin": 0.04,
+  "kalibrasi_nyata": {
+    "berkas": "kalibrasi_nyata.json",
+    "pembagian_rekaman": {
+      "tas_dibuka_dipakai_mengukur": "segmen mulai 16:05 sampai 16:54",
+      "normal_dipakai_mengukur": "segmen mulai sebelum 15:50",
+      "catatan": "Sisanya tidak dipakai mengukur dan menjadi bahan ujian (ai/compare_real.py)."
+    },
+    "segmen_dipakai": {
+      "buka": 35,
+      "normal": 13
+    },
+    "p_tas_gelap": 0.5,
+    "cahaya": {
+      "baseline_tas_gelap_maks": 0.02353,
+      "bukaan_amplitudo": [
+        0.1804,
+        0.8131
+      ],
+      "bukaan_durasi_s": [
+        0.8,
+        0.8572
+      ]
+    },
+    "akselerasi_p95_nyata": {
+      "normal_handling": 7.693,
+      "normal_idle": 0.086,
+      "normal_vibration": 16.745,
+      "normal_walking": 8.539,
+      "suspicious_open_move": 1.535,
+      "suspicious_open_pull": 2.667,
+      "suspicious_open_rummage": 2.695
+    },
+    "akselerasi_skala_simulasi": {
+      "normal_idle": 1.0,
+      "normal_walking": 5.353,
+      "normal_handling": 25.0,
+      "normal_vibration": 17.231,
+      "suspicious_open_move": 1.173,
+      "suspicious_open_rummage": 1.66,
+      "suspicious_open_pull": 0.969,
+      "suspicious_combined": 1.268
+    }
+  }
+}

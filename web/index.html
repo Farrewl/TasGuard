@@ -14,7 +14,7 @@
             <h1>TasGuard</h1>
             <span id="role-badge" class="role-badge">HP -</span>
         </div>
-        <p class="subtitle">Pemantauan keamanan tas</p>
+        <p class="subtitle">Penjaga isi tas dengan AI</p>
         <p id="insecure-warning" class="insecure-warning hidden">
             Halaman ini tidak memakai HTTPS. Kamera dan GPS diblokir Chrome. Buka URL tunnel dari laptop.
         </p>
@@ -29,9 +29,30 @@
                     <button type="button" id="toggle-key" class="btn-secondary">Lihat</button>
                 </div>
             </div>
+
+            <div class="form-group">
+                <label>Peran HP ini</label>
+                <div class="role-picker">
+                    <label class="role-option" id="role-option-A">
+                        <input type="radio" name="role" value="A">
+                        <span class="role-text">
+                            <strong>HP A - Pemantau</strong>
+                            <small>HP yang saya pegang. Menerima peringatan berupa tulisan dan getaran.</small>
+                        </span>
+                    </label>
+                    <label class="role-option" id="role-option-B">
+                        <input type="radio" name="role" value="B">
+                        <span class="role-text">
+                            <strong>HP B - Penjaga</strong>
+                            <small>HP yang ditaruh di dalam tas. Mendeteksi aktivitas mencurigakan dengan AI.</small>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
             <label class="form-check">
                 <input type="checkbox" id="remember-key" checked>
-                <span>Ingat di HP ini</span>
+                <span>Ingat kode akses di HP ini</span>
             </label>
             <button id="btn-connect" class="btn-primary">Sambungkan</button>
             <p id="error-msg" class="error-text hidden"></p>
@@ -41,54 +62,77 @@
         <section id="main-screen" class="glass-card hidden">
             <div id="status-card" class="status-card status-warning">
                 <h3 id="status-title">Menunggu koneksi</h3>
+                <p id="status-detail"></p>
             </div>
 
-            <div id="peer-alert" class="peer-alert hidden">
-                <strong id="peer-alert-text">HP Pasangan Tidak Aman!</strong>
+            <!-- Tampilan HP A (pemantau) -->
+            <div id="monitor-view" class="role-view hidden">
+                <button id="btn-dismiss-alarm" class="btn-primary orange hidden">Saya Sudah Aman</button>
+
+                <div id="map-panel" class="map-panel hidden">
+                    <div class="map-header">
+                        <h4 id="map-title">Lokasi HP penjaga</h4>
+                        <span id="map-status" class="mini-sub">Menunggu GPS...</span>
+                    </div>
+                    <div id="map-canvas" class="minimap map-canvas"></div>
+                    <div class="map-footer">
+                        <span id="map-coords" class="mini-sub">-</span>
+                        <a id="map-link" class="map-link hidden" href="#" target="_blank" rel="noopener">Buka Google Maps</a>
+                    </div>
+                </div>
+
+                <div class="glass-card peer-card">
+                    <div class="peer-header">
+                        <h4>HP B (Penjaga di tas)</h4>
+                        <span id="guard-badge" class="badge-dot dot-red">Offline</span>
+                    </div>
+                    <div class="peer-grid">
+                        <div>Penjagaan: <span id="guard-state">-</span></div>
+                        <div>Baterai: <span id="guard-battery">-</span></div>
+                        <div>Data terakhir: <span id="guard-age">-</span></div>
+                        <div>Peringatan: <span id="guard-alarms">0</span></div>
+                    </div>
+                </div>
+
+                <details id="label-card" class="glass-card label-card hidden">
+                    <summary>Rekam data (untuk uji AI)</summary>
+                    <p class="mini-sub">Pilih label SEBELUM melakukan kondisinya, lalu tekan Selesai sesudahnya. Dipakai saat HP B di dalam tas dan penjagaan sudah "Tas aman".</p>
+                    <div id="label-status" class="label-status">Label aktif: -</div>
+                    <div id="label-buttons" class="label-grid"></div>
+                    <button id="btn-label-clear" class="btn-secondary full">Selesai (tanpa label)</button>
+                </details>
+
+                <div class="glass-card">
+                    <h4>Riwayat peringatan</h4>
+                    <div id="alarm-history-list" class="history-list">Belum ada riwayat peringatan.</div>
+                </div>
             </div>
 
-            <button id="btn-dismiss-alarm" class="btn-primary orange hidden">Saya Sudah Aman</button>
+            <!-- Tampilan HP B (penjaga) -->
+            <div id="guard-view" class="role-view hidden">
+                <button id="btn-toggle-monitor" class="btn-primary">Mulai Penjagaan</button>
+                <button id="btn-bag-mode" class="btn-secondary full hidden">Masuk Mode Tas</button>
 
-            <div id="map-panel" class="map-panel hidden">
-                <div class="map-header">
-                    <h4 id="map-title">Lokasi HP</h4>
-                    <span id="map-status" class="mini-sub">Menunggu GPS...</span>
+                <div class="grid-2">
+                    <div class="mini-card">
+                        <span class="mini-label">Cahaya di tas</span>
+                        <strong id="val-light">--</strong>
+                        <span id="val-light-src" class="mini-sub">Sumber: -</span>
+                        <button type="button" id="btn-retry-camera" class="mini-link hidden">Izinkan kamera</button>
+                    </div>
+                    <div class="mini-card">
+                        <span class="mini-label">Gerakan tas</span>
+                        <strong id="val-accel">--</strong>
+                        <span id="val-accel-sub" class="mini-sub">Deviasi: 0.00</span>
+                    </div>
                 </div>
-                <div id="map-canvas" class="minimap map-canvas"></div>
-                <div class="map-footer">
-                    <span id="map-coords" class="mini-sub">-</span>
-                    <a id="map-link" class="map-link hidden" href="#" target="_blank" rel="noopener">Buka Google Maps</a>
-                </div>
-            </div>
 
-
-            <button id="btn-toggle-monitor" class="btn-primary">Mulai Pemantauan</button>
-            <button id="btn-bag-mode" class="btn-secondary full hidden">Masuk Mode Tas</button>
-
-            <div class="grid-2">
-                <div class="mini-card">
-                    <span class="mini-label">Cahaya Anda</span>
-                    <strong id="val-light">--</strong>
-                    <span id="val-light-src" class="mini-sub">Sumber: -</span>
-                    <button type="button" id="btn-retry-camera" class="mini-link hidden">Izinkan kamera</button>
-                </div>
-                <div class="mini-card">
-                    <span class="mini-label">Gerakan Anda</span>
-                    <strong id="val-accel">--</strong>
-                    <span id="val-accel-sub" class="mini-sub">Deviasi: 0.00</span>
-                </div>
-            </div>
-
-            <div class="glass-card peer-card" id="peer-card">
-                <div class="peer-header">
-                    <h4>HP Pasangan (<span id="peer-role">-</span>)</h4>
-                    <span id="peer-status-badge" class="badge-dot dot-red">Offline</span>
-                </div>
-                <div class="peer-grid">
-                    <div>Cahaya: <span id="peer-light">-</span></div>
-                    <div>Gerakan: <span id="peer-motion">-</span></div>
-                    <div>Baterai: <span id="peer-battery">-</span></div>
-                    <div>Update: <span id="peer-age">-</span></div>
+                <div class="glass-card peer-card">
+                    <div class="peer-header">
+                        <h4>HP A (Pemantau)</h4>
+                        <span id="monitor-badge" class="badge-dot dot-red">Offline</span>
+                    </div>
+                    <p class="mini-sub">Peringatan dikirim ke HP A. HP ini tetap senyap, tanpa suara dan getaran.</p>
                 </div>
             </div>
 
@@ -97,22 +141,16 @@
                 <span id="bar-battery">Baterai: --%</span>
             </div>
 
-            <div class="glass-card">
-                <h4>Riwayat</h4>
-                <div id="alarm-history-list" class="history-list">Belum ada riwayat alarm.</div>
-            </div>
-
             <button id="btn-disconnect" class="btn-secondary full">Putuskan</button>
         </section>
     </div>
 
-    <!-- Mode tas -->
+    <!-- Mode tas (HP B): layar gelap saat HP berada di dalam tas -->
     <div id="bag-mode-overlay" class="bag-overlay hidden">
         <div class="bag-content">
             <div id="bag-overlay-status" class="bag-dot"></div>
-            <h2>TasGuard berjalan</h2>
+            <h2>TasGuard menjaga tas</h2>
             <p>Tekan layar 3 detik untuk keluar.</p>
-            <p id="bag-alarm-text" class="bag-alarm hidden">TAS ANDA TIDAK AMAN!</p>
         </div>
     </div>
 
@@ -121,5 +159,7 @@
 
     <script src="minimap.js"></script>
     <script src="app.js"></script>
+    <script src="monitor.js"></script>
+    <script src="guard.js"></script>
 </body>
 </html>

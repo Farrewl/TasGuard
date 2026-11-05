@@ -5,3 +5,8 @@ uvicorn>=0.28.0
 python-dotenv>=1.0.0
 qrcode>=7.4.2
 websockets>=12.0
+# AI: inference Random Forest di server; pandas dipakai skrip di ai/ (generator, training).
+pandas>=2.0
+numpy>=1.26
+scikit-learn>=1.4
+joblib>=1.3

@@ -32,6 +32,10 @@ DEFAULT_ENV = {
     "ALARM_COOLDOWN_S": "30",
     "SENSOR_TIMEOUT_S": "10",
     "LOG_CSV": "true",
+    "AI_ENABLED": "true",
+    "AI_CALIBRATION_S": "5",
+    "AI_COOLDOWN_S": "10",
+    "AI_REQUIRE_LIGHT": "true",
 }
 
 
@@ -82,7 +86,9 @@ def ensure_running_inside_venv() -> None:
     if dependencies_need_install():
         install_dependencies()
 
-    os.execv(str(venv_python()), [str(venv_python()), str(Path(__file__).resolve()), *sys.argv[1:]])
+    # Jalankan ulang skrip dengan Python dari venv
+    subprocess.run([str(venv_python()), str(Path(__file__).resolve()), *sys.argv[1:]], check=True)
+    sys.exit(0)
 
 
 # Konfigurasi .env
@@ -197,14 +203,19 @@ def stop_process(proc) -> None:
 URL_PATTERN = re.compile(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com")
 
 
-def watch_cloudflared(proc, result: dict, done: threading.Event) -> None:
-    """Baca keluaran cloudflared di thread terpisah agar pipe tidak penuh."""
+def watch_cloudflared(proc, result: dict, done: threading.Event, connected: threading.Event) -> None:
+    """Baca keluaran cloudflared di thread terpisah agar pipe tidak penuh.
+
+    ``done`` menyala saat URL diperoleh (atau proses berakhir); ``connected``
+    menyala saat tunnel benar-benar tersambung ke jaringan Cloudflare."""
     for line in proc.stdout:
         match = URL_PATTERN.search(line)
         if match and not result.get("url"):
             result["url"] = match.group(0)
             done.set()
-        if "ERR" in line and not result.get("url"):
+        if "Registered tunnel connection" in line:
+            connected.set()
+        if "ERR" in line:
             text = line.strip()
             if text:
                 result.setdefault("errors", []).append(text)
@@ -221,8 +232,11 @@ def start_tunnel(port: int):
         sys.exit(1)
 
     print("Membuka Cloudflare quick tunnel...")
+    # HTTP/2 (TCP) dipakai karena protokol bawaan QUIC (UDP) sering diblokir
+    # jaringan Wi-Fi rumah/kampus; akibatnya URL terbentuk tetapi tunnel tidak
+    # pernah tersambung (Error 1033 di browser).
     proc = subprocess.Popen(
-        ["cloudflared", "tunnel", "--url", f"http://127.0.0.1:{port}"],
+        ["cloudflared", "tunnel", "--url", f"http://127.0.0.1:{port}", "--protocol", "http2"],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -232,7 +246,8 @@ def start_tunnel(port: int):
 
     result: dict = {}
     done = threading.Event()
-    threading.Thread(target=watch_cloudflared, args=(proc, result, done), daemon=True).start()
+    connected = threading.Event()
+    threading.Thread(target=watch_cloudflared, args=(proc, result, done, connected), daemon=True).start()
 
     deadline = time.time() + 30
     while time.time() < deadline and not result.get("url"):
@@ -246,6 +261,14 @@ def start_tunnel(port: int):
         for err in result.get("errors", [])[-5:]:
             print("       ", err)
         sys.exit(1)
+
+    # URL dicetak cloudflared sebelum tunnel siap; tunggu sampai benar-benar tersambung.
+    print("Menunggu tunnel tersambung ke Cloudflare...")
+    if not connected.wait(timeout=30):
+        print("[PERINGATAN] Tunnel belum tersambung setelah 30 detik, URL di bawah kemungkinan belum bisa dibuka.")
+        print("             Periksa koneksi internet atau coba jaringan lain (mis. hotspot HP).")
+        for err in result.get("errors", [])[-3:]:
+            print("       ", err)
 
     return proc, result["url"]
 

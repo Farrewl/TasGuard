@@ -136,3 +136,33 @@ body {
     font-family: system-ui, sans-serif;
     font-weight: 600;
 }
+
+/* Panel AI */
+.ai-box { margin-top: 12px; padding: 10px 12px; border: 1px solid rgba(128,128,128,.35); border-radius: 10px; font-size: 14px; line-height: 1.7; }
+.ai-title { font-weight: 700; margin-bottom: 4px; }
+.ai-sub { opacity: .7; font-size: 12px; }
+.ai-bar { position: relative; height: 10px; border-radius: 6px; background: rgba(128,128,128,.25); margin: 4px 0 6px; overflow: hidden; }
+.ai-bar-fill { height: 100%; width: 0; background: #2e9e5b; transition: width .4s, background .4s; }
+.ai-bar-fill.hot { background: #d64545; }
+.ai-bar-thr { position: absolute; top: 0; bottom: 0; width: 2px; background: #222; left: 65%; }
+
+.label-bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 16px; padding: 10px 12px; border: 1px dashed rgba(128,128,128,.5); border-radius: 10px; }
+.label-bar select { padding: 6px 8px; font-size: 14px; }
+
+/* Alur satu arah dan keterangan peran */
+.dash-flow {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    text-align: center;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.dash-role-sub {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.65);
+}

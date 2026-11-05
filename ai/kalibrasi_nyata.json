@@ -1,0 +1,49 @@
+{
+  "cahaya": {
+    "baseline_tas_gelap_p90": 0.023529411764705882,
+    "bukaan_amplitudo": {
+      "median": 0.1803921568627451,
+      "sigma": 0.8131125732564978,
+      "n": 35
+    },
+    "bukaan_durasi_s": {
+      "median": 0.8,
+      "sigma": 0.8572193263640056,
+      "n": 83
+    }
+  },
+  "akselerasi": {
+    "p95_nyata": {
+      "normal_handling": 7.693249999999999,
+      "normal_idle": 0.08554999999999997,
+      "normal_vibration": 16.745499999999986,
+      "normal_walking": 8.539000000000001,
+      "suspicious_open_move": 1.534575,
+      "suspicious_open_pull": 2.667,
+      "suspicious_open_rummage": 2.6949499999999995
+    },
+    "n_segmen_per_label": {
+      "normal_handling": 2,
+      "normal_idle": 4,
+      "normal_vibration": 4,
+      "normal_walking": 3,
+      "suspicious_open_move": 16,
+      "suspicious_open_pull": 11,
+      "suspicious_open_rummage": 8
+    },
+    "maks_teramati": 78.441
+  },
+  "segmen_dipakai": {
+    "buka": 35,
+    "normal": 13
+  },
+  "pembagian_rekaman": {
+    "tas_dibuka_dipakai_mengukur": "segmen mulai 16:05 sampai 16:54",
+    "normal_dipakai_mengukur": "segmen mulai sebelum 15:50",
+    "catatan": "Sisanya tidak dipakai mengukur dan menjadi bahan ujian (ai/compare_real.py)."
+  },
+  "sumber": {
+    "berkas": "sensor_log.csv",
+    "tanggal_rekaman": "2026-11-05"
+  }
+}

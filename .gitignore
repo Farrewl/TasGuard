@@ -1,8 +1,14 @@
+# Rahasia dan lingkungan lokal
 .env
 .venv/
-state.json
+
+# Dibuat saat server berjalan
+sensor_log.csv.old
+
+# Data CSV (dataset dibuat ulang dengan ai/generate_dataset.py)
 *.csv
-calibration.json
+
+# Cache dan editor
 __pycache__/
 *.pyc
 .idea/

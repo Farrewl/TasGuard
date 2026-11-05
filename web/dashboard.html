@@ -16,43 +16,53 @@
         <span id="dash-time" class="dash-time">Memuat...</span>
     </header>
 
+    <p class="dash-flow">HP B (penjaga di dalam tas) &rarr; laptop (AI) &rarr; HP A (pemantau, dipegang pengguna)</p>
+
     <div class="dash-grid">
-        <!-- HP A -->
+        <!-- HP A: pemantau -->
         <div id="card-A" class="dash-card">
             <div class="dash-card-header">
-                <h2>HP A</h2>
+                <div>
+                    <h2>HP A - Pemantau</h2>
+                    <span class="dash-role-sub">Dipegang pengguna, menerima peringatan</span>
+                </div>
                 <span id="status-dot-A" class="badge-dot dot-red">Offline</span>
             </div>
             <div class="dash-metrics">
-                <div>Status: <strong id="stat-status-A">-</strong></div>
-                <div>Cahaya: <strong id="stat-light-A">-</strong></div>
-                <div>Gerakan: <strong id="stat-accel-A">-</strong></div>
-                <div>Baterai: <strong id="stat-battery-A">-</strong></div>
-                <div>Update terakhir: <strong id="stat-seen-A">-</strong></div>
-                <div>Total Alarm: <strong id="stat-alarms-A">0</strong></div>
-            </div>
-            <div id="map-wrap-A" class="dash-map-wrap hidden">
-                <div id="map-A" class="dash-map minimap"></div>
-                <div class="dash-map-info">
-                    <span id="map-text-A">-</span>
-                    <a id="map-link-A" href="#" target="_blank" rel="noopener">Buka Google Maps</a>
-                </div>
+                <div>Koneksi: <strong id="stat-status-A">-</strong></div>
+                <div>Aktivitas terakhir: <strong id="stat-seen-A">-</strong></div>
+                <div>Peringatan terakhir dikirim: <strong id="stat-lastalarm-A">-</strong></div>
             </div>
         </div>
 
-        <!-- HP B -->
+        <!-- HP B: penjaga -->
         <div id="card-B" class="dash-card">
             <div class="dash-card-header">
-                <h2>HP B</h2>
+                <div>
+                    <h2>HP B - Penjaga</h2>
+                    <span class="dash-role-sub">Di dalam tas, satu-satunya sumber sensor</span>
+                </div>
                 <span id="status-dot-B" class="badge-dot dot-red">Offline</span>
             </div>
             <div class="dash-metrics">
-                <div>Status: <strong id="stat-status-B">-</strong></div>
+                <div>Status tas: <strong id="stat-status-B">-</strong></div>
+                <div>Penjagaan: <strong id="stat-guard-B">-</strong></div>
                 <div>Cahaya: <strong id="stat-light-B">-</strong></div>
                 <div>Gerakan: <strong id="stat-accel-B">-</strong></div>
                 <div>Baterai: <strong id="stat-battery-B">-</strong></div>
-                <div>Update terakhir: <strong id="stat-seen-B">-</strong></div>
-                <div>Total Alarm: <strong id="stat-alarms-B">0</strong></div>
+                <div>Data terakhir: <strong id="stat-seen-B">-</strong></div>
+                <div>Total peringatan: <strong id="stat-alarms-B">0</strong></div>
+            </div>
+            <div class="ai-box" id="ai-box-B">
+                <div class="ai-title">AI (Random Forest) vs Aturan lama</div>
+                <div>Status AI: <strong id="ai-phase-B">-</strong></div>
+                <div>Skor SUSPICIOUS: <strong id="ai-score-B">-</strong>
+                    <span class="ai-sub">(ambang <span id="ai-thr-B">-</span>)</span></div>
+                <div class="ai-bar"><div id="ai-bar-fill-B" class="ai-bar-fill"></div><div id="ai-bar-thr-B" class="ai-bar-thr"></div></div>
+                <div>Aturan cahaya-saja (tas terbuka): <strong id="ai-open-B">-</strong></div>
+                <div>Window berurutan: <strong id="ai-consec-B">-</strong></div>
+                <div>Baseline cahaya: <strong id="ai-base-B">-</strong></div>
+                <div>Aturan PPT minggu lalu (pembanding): <strong id="rule-shadow-B">-</strong></div>
             </div>
             <div id="map-wrap-B" class="dash-map-wrap hidden">
                 <div id="map-B" class="dash-map minimap"></div>
@@ -64,9 +74,18 @@
         </div>
     </div>
 
+    <div class="label-bar">
+        <strong>Rekam data (label kondisi):</strong>
+        <select id="label-select">
+            <option value="">(tanpa label)</option>
+        </select>
+        <span id="label-current" class="ai-sub">Label aktif: -</span>
+        <span class="ai-sub">Pilih label SETELAH status AI "Memantau" (kalibrasi selesai). Bisa juga diatur dari HP A.</span>
+    </div>
+
     <div class="dash-footer">
-        <span>Mode pemantauan lokal (tanpa notifikasi).</span>
-        <span id="dash-total-alarms">Total Alarm Sistem: 0</span>
+        <span id="ai-model-info">Model AI: -</span>
+        <span id="dash-total-alarms">Total peringatan: 0</span>
     </div>
 </div>
 

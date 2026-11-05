@@ -1,4 +1,4 @@
-/* Service worker TasGuard: notifikasi alarm lintas HP. */
+/* Service worker TasGuard: notifikasi peringatan di HP pemantau (HP A). */
 
 const ALARM_TAG = "tasguard-alarm";
 const DISCONNECT_TAG = "tasguard-disconnect";
@@ -17,7 +17,7 @@ self.addEventListener("message", (event) => {
     if (data.type === "SHOW_ALARM_NOTIFICATION") {
         event.waitUntil(
             self.registration.showNotification(data.title || "TAS TIDAK AMAN!", {
-                body: data.body || "Tas Anda tidak aman.",
+                body: data.body || "Aktivitas mencurigakan terdeteksi di dalam tas.",
                 icon: "./icons/icon-192.png",
                 badge: "./icons/icon-192.png",
                 tag: ALARM_TAG,
@@ -33,8 +33,8 @@ self.addEventListener("message", (event) => {
 
     if (data.type === "SHOW_WARN_NOTIFICATION") {
         event.waitUntil(
-            self.registration.showNotification(data.title || "Sensor tas tidak merespons", {
-                body: data.body || "Data sensor berhenti masuk. Periksa HP di dalam tas.",
+            self.registration.showNotification(data.title || "Peringatan: HP penjaga", {
+                body: data.body || "HP penjaga tidak merespons. Periksa HP di dalam tas.",
                 icon: "./icons/icon-192.png",
                 tag: ALARM_TAG,
                 renotify: true,
@@ -48,8 +48,8 @@ self.addEventListener("message", (event) => {
 
     if (data.type === "SHOW_DISCONNECT_NOTIFICATION") {
         event.waitUntil(
-            self.registration.showNotification("Tas tidak terpantau", {
-                body: data.body || "Koneksi ke laptop terputus.",
+            self.registration.showNotification("Koneksi ke laptop terputus", {
+                body: data.body || "Peringatan dari HP penjaga tidak akan diterima.",
                 icon: "./icons/icon-192.png",
                 tag: DISCONNECT_TAG,
                 requireInteraction: true,
@@ -76,11 +76,14 @@ self.addEventListener("notificationclick", (event) => {
     event.waitUntil(
         (async () => {
             const windowClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-            for (const client of windowClients) {
-                client.postMessage({ type: "ACTION_DISMISS_ALARM" });
-            }
 
-            if (action === "dismiss") return;
+            // Hanya tombol "Saya Sudah Aman" yang menutup peringatan; mengetuk badan notifikasi cukup membuka aplikasi.
+            if (action === "dismiss") {
+                for (const client of windowClients) {
+                    client.postMessage({ type: "ACTION_DISMISS_ALARM" });
+                }
+                return;
+            }
 
             if (windowClients.length > 0) {
                 await windowClients[0].focus();

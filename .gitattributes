@@ -1,0 +1,4 @@
+# Semua file teks memakai akhir baris LF agar konsisten di Windows dan Linux
+* text=auto eol=lf
+*.png binary
+*.joblib binary

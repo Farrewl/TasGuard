@@ -1,6 +1,11 @@
-"""Logika deteksi pencurian. Murni Python, tanpa FastAPI/WebSocket.
+"""Aturan threshold lama (terang bertahan + getar bersamaan) dan log sensor.
 
-Semua jendela waktu memakai jam laptop (time.time()), bukan jam HP.
+Aturan ini kini hanya pembanding (*shadow*) bagi AI: hasilnya dihitung dan
+ditampilkan di dashboard, tetapi tidak membunyikan alarm kecuali AI_ENABLED=false.
+Modul ini juga menulis setiap sampel sensor HP penjaga ke sensor_log.csv.
+
+Murni Python, tanpa FastAPI/WebSocket. Semua jendela waktu memakai jam laptop
+(time.time()), bukan jam HP.
 """
 
 import csv
@@ -11,45 +16,73 @@ from typing import List, Optional, Tuple
 from server import config
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "sensor_log.csv")
+CSV_HEADER = ["waktu_laptop", "waktu_hp", "sumber_cahaya", "nilai_cahaya", "accel_mag", "deviasi", "baterai",
+              "role", "label"]
+
+# Label kondisi untuk merekam data nyata. Diatur dari HP A (pesan WebSocket "label") atau dari
+# dashboard laptop (POST /api/label). Daftar ini satu-satunya sumber nama label.
+LABELS = [
+    ("normal_idle", "Tas tertutup, diam"),
+    ("normal_walking", "Tas tertutup, dibawa berjalan"),
+    ("normal_handling", "Tas tertutup, diangkat/diletakkan"),
+    ("normal_vibration", "Tas tertutup, digoyang kuat"),
+    ("suspicious_open_move", "Tas dibuka, tangan bergerak"),
+    ("suspicious_open_rummage", "Tas dibuka, isi diaduk"),
+    ("suspicious_open_pull", "Tas dibuka, barang ditarik"),
+]
+LABEL_VALUES = {value for value, _ in LABELS}
+
+_label = {"name": ""}
+
+
+def set_label(name: str) -> None:
+    _label["name"] = name.strip()[:40]
+
+
+def current_label() -> str:
+    return _label["name"]
+
+
+def labels_payload() -> list:
+    """Daftar label untuk klien: [{value, text}, ...]."""
+    return [{"value": value, "text": text} for value, text in LABELS]
 
 
 class DetectionEngine:
-    def __init__(self) -> None:
+    """Detektor threshold lama untuk satu HP penjaga."""
+
+    def __init__(self, role: str = "?") -> None:
+        self.role = role
         self._accel_samples: List[Tuple[float, float]] = []  # (waktu laptop, deviasi)
         self._bright_since: Optional[float] = None
         self._last_source: Optional[str] = None
         self._last_shake_time: float = 0.0
         self._last_alarm_time: float = 0.0
-        self._last_sensor_time: Optional[float] = None
-        self._last_message_time: float = 0.0
-        self._got_sensor: bool = False
 
-    # Siklus koneksi
+    # Siklus penjagaan
 
-    def reset_connection(self) -> None:
+    def reset(self) -> None:
+        """Kosongkan keadaan (dipanggil saat penjagaan dimulai atau dihentikan)."""
         self._accel_samples.clear()
         self._bright_since = None
-        self._last_sensor_time = None
-        self._last_message_time = time.time()
-        self._got_sensor = False
         if config.LOG_CSV:
             self._init_csv()
-
-    def touch(self) -> None:
-        """Tandai HP masih hidup (pesan apa pun, termasuk ping)."""
-        self._last_message_time = time.time()
 
     # CSV
 
     def _init_csv(self) -> None:
         if os.path.exists(CSV_PATH):
-            return
+            try:
+                with open(CSV_PATH, "r", encoding="utf-8") as handle:
+                    header = handle.readline().strip().split(",")
+                if header == CSV_HEADER:
+                    return
+                os.replace(CSV_PATH, CSV_PATH + ".old")  # format lama: simpan, mulai file baru
+            except OSError:
+                return
         try:
             with open(CSV_PATH, "w", newline="", encoding="utf-8") as handle:
-                writer = csv.writer(handle)
-                writer.writerow(
-                    ["waktu_laptop", "waktu_hp", "sumber_cahaya", "nilai_cahaya", "accel_mag", "deviasi", "baterai"]
-                )
+                csv.writer(handle).writerow(CSV_HEADER)
         except OSError as exc:
             print(f"[CSV] Gagal membuat file log: {exc}")
 
@@ -68,18 +101,17 @@ class DetectionEngine:
         try:
             with open(CSV_PATH, "a", newline="", encoding="utf-8") as handle:
                 csv.writer(handle).writerow(
-                    [f"{now:.3f}", f"{sensor_ts:.3f}", source, f"{value:.1f}", f"{mag:.3f}", f"{delta:.3f}", battery]
+                    [f"{now:.3f}", f"{sensor_ts:.3f}", source, f"{value:.1f}", f"{mag:.3f}", f"{delta:.3f}", battery,
+                     self.role, _label["name"]]
                 )
         except OSError as exc:
             print(f"[CSV] Gagal menulis log: {exc}")
 
     # Evaluasi data sensor
 
-    def evaluate(self, message: dict, armed: bool) -> Optional[dict]:
+    def evaluate(self, message: dict) -> Optional[dict]:
+        """Catat sampel dan jalankan aturan lama. Mengembalikan dict alarm atau None."""
         now = time.time()
-        self._last_sensor_time = now
-        self._last_message_time = now
-        self._got_sensor = True
 
         light = message.get("light") or {}
         source = str(light.get("source", "unknown"))
@@ -101,11 +133,6 @@ class DetectionEngine:
 
         battery = message.get("battery")
         self._append_csv(now, sensor_ts, source, value, mag, delta, battery)
-
-        if not armed:
-            self._accel_samples.clear()
-            self._bright_since = None
-            return None
 
         threshold = config.LUX_THRESHOLD if source == "ambient_sensor" else config.LUMA_THRESHOLD
         if source != self._last_source:
@@ -152,32 +179,4 @@ class DetectionEngine:
             "shake_score": round(shake_score, 2),
             "trigger_sensor_ts": sensor_ts,
             "ts": time.time(),
-        }
-
-    # Sensor timeout
-
-    def check_timeout(self) -> Optional[dict]:
-        """WARN jika HP berhenti mengirim data saat penjagaan aktif.
-
-        Pengecekan memakai dua sinyal: data sensor dan pesan apa pun (ping).
-        Dengan begitu, menghentikan pemantauan secara sengaja (HP masih ping)
-        tidak memicu alarm palsu, sedangkan HP yang mati/diambil tetap terdeteksi.
-        """
-        if not self._got_sensor or self._last_sensor_time is None:
-            return None
-
-        now = time.time()
-        silent = (now - self._last_sensor_time) > config.SENSOR_TIMEOUT_S
-        phone_alive = (now - self._last_message_time) <= config.SENSOR_TIMEOUT_S
-        if not silent or phone_alive:
-            return None
-
-        self._last_sensor_time = now  # jangan spam alarm tiap detik
-        return {
-            "type": "alarm",
-            "level": "WARN",
-            "light": {"source": self._last_source or "unknown", "value": 0},
-            "shake_score": 0.0,
-            "trigger_sensor_ts": now,
-            "ts": now,
         }

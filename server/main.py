@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import hmac
 import json
@@ -9,8 +10,9 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from server import config
-from server.registry import DeviceRegistry
-from server.state_store import get_armed, load_state, save_state, set_armed
+from server.decision_engine import get_model
+from server.detector import LABEL_VALUES, current_label, labels_payload, set_label
+from server.registry import GUARD, MONITOR, DeviceRegistry, other_role
 
 WEB_DIR = os.path.join(os.path.dirname(__file__), "..", "web")
 DASHBOARD_HTML = os.path.join(WEB_DIR, "dashboard.html")
@@ -24,18 +26,16 @@ registry = DeviceRegistry()
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
-    import asyncio
-
     async def background_tasks():
         while True:
             await asyncio.sleep(1.0)
-            timeout_alarms = registry.check_timeouts()
-            for alarm in timeout_alarms:
-                print(f"[ALARM WARN] HP {alarm['from']} timeout sensor.")
+            for alarm in registry.check_timeouts():
+                print(f"[ALARM WARN] {alarm['reason']}")
                 await registry.broadcast_alarm(alarm)
 
             await registry.broadcast_peer_updates()
 
+    get_model()  # muat model sekali saat server mulai
     task = asyncio.create_task(background_tasks())
     yield
     task.cancel()
@@ -46,9 +46,10 @@ app = FastAPI(title="TasGuard Server", lifespan=lifespan)
 
 @app.middleware("http")
 async def no_cache_middleware(request: Request, call_next):
+    """Halaman dan skrip tidak boleh di-cache agar HP selalu memakai versi terbaru."""
     response = await call_next(request)
     path = request.url.path
-    if path.endswith("sw.js") or path.endswith(".html") or path == "/" or path == "/dashboard":
+    if path.endswith((".html", ".js", ".css")) or path == "/" or path == "/dashboard":
         response.headers["Cache-Control"] = "no-store, max-age=0"
     return response
 
@@ -80,6 +81,22 @@ async def api_status(request: Request):
     if not is_local_request(request):
         return JSONResponse(status_code=403, content={"detail": "Akses ditolak (local-only)."})
     return registry.status_api()
+
+
+@app.post("/api/label")
+async def api_label(request: Request, name: str = ""):
+    """Tandai kondisi yang sedang direkam (hanya laptop). name kosong = hapus label."""
+    if not is_local_request(request):
+        return JSONResponse(status_code=403, content={"detail": "Akses ditolak (local-only)."})
+    set_label(name)
+    return {"label": current_label()}
+
+
+@app.get("/api/label")
+async def api_label_get(request: Request):
+    if not is_local_request(request):
+        return JSONResponse(status_code=403, content={"detail": "Akses ditolak (local-only)."})
+    return {"label": current_label()}
 
 
 def client_ip(websocket: WebSocket) -> str:
@@ -121,8 +138,6 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.close(code=4003, reason="Too many failed attempts")
         return
 
-    import asyncio
-
     try:
         raw = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
     except asyncio.TimeoutError:
@@ -147,12 +162,14 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.close(code=4001, reason="Invalid access key or device_id")
         return
 
-    dev, old_ws = registry.assign(device_id, websocket)
+    # Kode akses benar; sekarang peran yang dipilih HP ini.
+    role = str(message.get("role", "")).strip().upper()
+    dev, old_ws, error = registry.assign(device_id, websocket, role)
+    auth_failures.pop(ip, None)
     if not dev:
-        auth_failures.pop(ip, None)
-        await send_json(websocket, {"type": "auth_fail", "reason": "penuh"})
-        await websocket.close(code=4004, reason="Slots A and B are full")
-        print(f"[AUTH] Penolakan slot penuh untuk device_id={device_id} dari {ip}")
+        await send_json(websocket, {"type": "auth_fail", "reason": error})
+        await websocket.close(code=4004 if error == "peran_terpakai" else 4002, reason=f"Role rejected: {error}")
+        print(f"[AUTH] Peran '{role}' ditolak ({error}) untuk device_id={device_id} dari {ip}")
         return
 
     if old_ws and old_ws is not websocket:
@@ -161,21 +178,19 @@ async def websocket_endpoint(websocket: WebSocket):
         except Exception:
             pass
 
-    auth_failures.pop(ip, None)
-    role = dev.role
-    peer_role = "B" if role == "A" else "A"
-
     await send_json(
         websocket,
         {
             "type": "auth_ok",
             "role": role,
-            "armed": get_armed(role),
             "status": dev.status,
-            "peer": registry.snapshot(peer_role),
+            "peer": registry.snapshot(other_role(role)),
+            "self": registry.snapshot(role),
+            "labels": labels_payload(),
+            "label": current_label(),
         },
     )
-    print(f"[HP {role}] Terhubung (device_id={device_id}, armed={get_armed(role)})")
+    print(f"[HP {role}] Terhubung sebagai {'pemantau' if role == MONITOR else 'penjaga'} (device_id={device_id})")
     await registry.broadcast_peer_updates()
 
     try:
@@ -200,32 +215,39 @@ async def websocket_endpoint(websocket: WebSocket):
                     },
                 )
 
-            elif kind == "control":
-                armed = bool(message.get("armed", True))
-                set_armed(role, armed)
-                await send_json(websocket, {"type": "state", "armed": armed})
-                print(f"[HP {role}] Penjagaan {'AKTIF' if armed else 'NONAKTIF'}")
+            elif kind == "guard" and role == GUARD:
+                active = bool(message.get("active"))
+                changed = registry.handle_guard(role, active)
+                print(f"[HP {role}] Penjagaan {'DIMULAI' if active else 'DIHENTIKAN'}")
+                if changed and current_label():
+                    set_label("")   # sesi penjagaan baru dimulai tanpa label yang tersisa
+                    print("[LABEL] Label dikosongkan karena status penjagaan berubah")
                 await registry.broadcast_peer_updates()
 
-            elif kind == "dismiss":
-                registry.dismiss(role)
-                print(f"[HP {role}] Alarm ditutup (Saya Sudah Aman)")
-                await registry.broadcast_peer_updates()
-
-            elif kind == "location":
-                registry.handle_location(role, message)
-                await registry.broadcast_peer_updates()
-
-            elif kind == "sensor":
+            elif kind == "sensor" and role == GUARD:
                 alarm = registry.handle_sensor(role, message)
                 if alarm:
-                    print(
-                        f"[ALARM] HP {role} | {alarm['level']} - {alarm['reason']} | "
-                        f"shake_score={alarm['shake_score']} | total={dev.alarms}"
-                    )
+                    ai = alarm.get("ai") or {}
+                    print(f"[ALARM] {alarm['level']} - {alarm['reason']} | skor AI={ai.get('score')} | "
+                          f"total={dev.alarms}")
                     await registry.broadcast_alarm(alarm)
-                # Selalu kirim update peer setelah sensor diterima (tanpa alarm pun)
+
+            elif kind == "location" and role == GUARD:
+                registry.handle_location(role, message)
+
+            elif kind == "label" and role == MONITOR:
+                name = str(message.get("name", ""))
+                if name == "" or name in LABEL_VALUES:
+                    set_label(name)
+                    print(f"[LABEL] Rekam: {name or '(tanpa label)'} (dari HP A)")
+                    await registry.broadcast_peer_updates()
+
+            elif kind == "dismiss" and role == MONITOR:
+                registry.dismiss()
+                print(f"[HP {role}] Peringatan ditutup (Saya Sudah Aman)")
                 await registry.broadcast_peer_updates()
+
+            # Pesan lain (mis. sensor dari HP pemantau) diabaikan: arah data sensor hanya B -> A.
 
     except WebSocketDisconnect:
         pass
