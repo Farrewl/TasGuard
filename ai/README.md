@@ -16,11 +16,10 @@ ai/
 ├── validate_dataset.py     # 57 pemeriksaan kontrak dataset
 ├── audit_dataset.py        # membuat dataset/dataset_report.md
 ├── train_model.py          # melatih model, memilih ambang, membuat laporan
-├── evaluate_real.py        # evaluasi cepat model pada rekaman HP (sensor_log.csv)
 ├── compare_real.py         # membandingkan aturan vs AI pada rekaman HP berlabel (--replay) -> models/real_comparison.md
 ├── uji_terkontrol.py       # aliran sensor buatan: getaran saja vs tas dibuka (tanpa HP dan server)
 ├── dataset/                # CSV hasil generator, dataset_config.json, dataset_report.md
-└── models/                 # tasguard_rf.joblib, metrics.json, model_report.md
+└── models/                 # tasguard_rf.joblib, metrics.json, model_report.md, real_comparison.md
 ```
 
 File `*.csv` tidak ikut git (lihat `.gitignore`); buat ulang dengan `generate_dataset.py`. Model `models/tasguard_rf.joblib` ikut git sehingga server langsung dapat memakainya.
@@ -209,7 +208,7 @@ Rekaman dibuat tim dengan memeragakan sendiri kondisi di depan HP (5 November 20
 | 2 atas, buka sedikit (16:44) | HP menghadap atas, tas dibuka sedikit | mengukur simulator |
 | 3 miring, buka lebar (16:55) | HP miring, tas dibuka lebar | **ujian** (22 segmen tas dibuka) |
 
-Hasil ujian dengan model dan ambang 0,5 seperti yang dipakai server (segmen = satu pengambilan berlabel; alarm = 2 window berurutan; zona batas 3 detik dibuang). Laporan lengkap: [models/real_comparison.md](models/real_comparison.md).
+Hasil ujian dengan model dan ambang 0,5 seperti yang dipakai server (segmen = satu pengambilan berlabel; alarm = 2 window berurutan; zona batas 3 detik dibuang). Laporan lengkap: [models/real_comparison.md](models/real_comparison.md). Rekaman mentahnya (`sensor_log.csv`, `ai_log.csv`) tidak ikut git (`*.csv` diabaikan), jadi angka ini hanya bisa diulang oleh yang memegang berkas rekaman tersebut; dataset sintetisnya dapat dibuat ulang oleh siapa pun dengan `generate_dataset.py`.
 
 | Metode | Salah alarm (10 segmen normal) | Tas dibuka terdeteksi (22 segmen) |
 |---|---|---|
@@ -255,7 +254,6 @@ Dataset sintetis tidak membuktikan perilaku di dunia nyata. Untuk menilainya, re
 python ai/compare_real.py --replay          # hitung ulang fitur dari sensor_log.csv, hasil di ai/models/real_comparison.md
 python ai/compare_real.py --tune-first     # ambang AI disetel pada kondisi pertama yang memuat tas dibuka
 python ai/compare_real.py --selftest       # uji sanity pada window sintetis (tidak menulis ke repo)
-python ai/evaluate_real.py                 # evaluasi cepat skor per label (real_eval.md)
 ```
 
 `compare_real.py` membandingkan lima metode pada window dan segmen yang sama: aturan PPT (ambang absolut, replay `detector.py`), Aturan A (cahaya naik saja), Aturan B (cahaya naik dan getar), AI saja, dan AI + syarat tas dibuka. Window 3 detik pertama setelah label berganti dibuang; alarm segmen butuh 2 window berurutan. Dengan `--tune-first`, ambang AI dipilih dari satu sesi atau kondisi saja lalu diuji di yang lain, sehingga ambang tidak dipilih dan dinilai pada data yang sama. `--kondisi "HH:MM=nama"` menamai kondisi menurut jam mulai (satu kondisi bisa terdiri dari beberapa potongan sesi) dan `--abaikan` mengeluarkan kondisi yang dipakai menyetel simulator dari angka ujian. `--replay` menghitung ulang fitur dari `sensor_log.csv`, sehingga perubahan margin atau model bisa diuji pada rekaman yang sama; tanpa `--replay`, yang dibaca adalah fitur di `ai_log.csv` yang dihitung saat merekam. Model **tidak** dilatih ulang pada rekaman nyata.

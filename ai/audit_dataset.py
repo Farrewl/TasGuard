@@ -126,7 +126,7 @@ def main():
             rows.append([s, fam_name, g.min(), g.quantile(.01), g.median(), g.quantile(.99), g.max()])
     add(md_table(pd.DataFrame(rows, columns=["Sensor", "Keluarga skenario", "Min", "1%", "Median", "99%", "Maks"])) + "\n")
     add(f"`light_value` adalah nilai simulasi ternormalisasi yang dipotong ke {cfg['light_bounds']}, bukan lux. "
-        f"`accel_mag` dalam m/s2 dan dipotong ke {cfg['accel_bounds']}, dengan asumsi skala penuh 4 g.\n")
+        f"`accel_mag` dalam m/s2 dan dipotong ke {cfg['accel_bounds']}, dengan skala penuh 8 g (sensor HP nyata jenuh di 78,44 m/s2).\n")
     sc = win.groupby("scenario")["accel_std"].median().round(3)
     add("Median `accel_std` window per skenario (m/s2), untuk memeriksa urutan tingkat aktivitas masuk akal:\n")
     add(md_table(pd.DataFrame({"scenario": sc.index, "median_accel_std": sc.values})) + "\n")
@@ -301,7 +301,9 @@ def main():
     add("## 10. Batas audit ini\n")
     add("Audit ini memeriksa konsistensi internal dan tingkat kesulitan sebuah simulasi. Audit tidak dapat "
         "menunjukkan bahwa perilaku sensor simulasi cocok dengan HP, tas, atau pencurian yang sebenarnya. "
-        "Untuk itu diperlukan rekaman nyata.\n")
+        "Besaran sinyal simulasi memang dikalibrasi dari rekaman satu orang, satu HP, dan satu tas "
+        "(`kalibrasi_nyata.json`), tetapi kecocokannya dengan pencurian nyata hanya bisa diuji dengan "
+        "rekaman nyata yang tidak dipakai menyetel simulator (`compare_real.py`).\n")
     (D / "dataset_report.md").write_text("\n".join(L), encoding="utf-8", newline="\n")
     print("dataset_report.md ditulis")
 

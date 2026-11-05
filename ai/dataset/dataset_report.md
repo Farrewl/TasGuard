@@ -85,7 +85,7 @@ Window 0 jarang SUSPICIOUS karena setiap kejadian dimulai setelah periode kalibr
 | accel_mag | NORMAL | 0.000 | 3.800 | 9.815 | 40.691 | 78.480 |
 | accel_mag | SUSPICIOUS | 0.000 | 3.935 | 9.814 | 18.246 | 29.613 |
 
-`light_value` adalah nilai simulasi ternormalisasi yang dipotong ke [0.0, 1.0], bukan lux. `accel_mag` dalam m/s2 dan dipotong ke [0.0, 78.48], dengan asumsi skala penuh 4 g.
+`light_value` adalah nilai simulasi ternormalisasi yang dipotong ke [0.0, 1.0], bukan lux. `accel_mag` dalam m/s2 dan dipotong ke [0.0, 78.48], dengan skala penuh 8 g (sensor HP nyata jenuh di 78,44 m/s2).
 
 Median `accel_std` window per skenario (m/s2), untuk memeriksa urutan tingkat aktivitas masuk akal:
 
@@ -225,4 +225,4 @@ Tinjauan jalan pintas, berdasarkan angka di atas:
 
 ## 10. Batas audit ini
 
-Audit ini memeriksa konsistensi internal dan tingkat kesulitan sebuah simulasi. Audit tidak dapat menunjukkan bahwa perilaku sensor simulasi cocok dengan HP, tas, atau pencurian yang sebenarnya. Untuk itu diperlukan rekaman nyata.
+Audit ini memeriksa konsistensi internal dan tingkat kesulitan sebuah simulasi. Audit tidak dapat menunjukkan bahwa perilaku sensor simulasi cocok dengan HP, tas, atau pencurian yang sebenarnya. Besaran sinyal simulasi memang dikalibrasi dari rekaman satu orang, satu HP, dan satu tas (`kalibrasi_nyata.json`), tetapi kecocokannya dengan pencurian nyata hanya bisa diuji dengan rekaman nyata yang tidak dipakai menyetel simulator (`compare_real.py`).
